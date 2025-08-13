@@ -4,7 +4,7 @@ yt-dlp下载转码一体脚本
 一键命令
 
 ```
-git clone https://github.com/xymn2023/yt-dlp.git && cd yt-dlp && chmod +x yt-dlp.sh && ./yt-dlp.sh
+curl -L https://raw.githubusercontent.com/xymn2023/y-tb/main/yt-dlp.sh | bash
 ```
 
 **注意**：自建一个目录存放本项目.
