@@ -336,16 +336,12 @@ break_end() {
     echo ""
 }
 
-# 检查或安装 yt-dlp 和 ffmpeg
+# 检查或安装 yt-dlp 和 ffmpeg - 主要修复点！
 check_or_install_yt_dlp() {
     local yt_dlp_installed=false
     local ffmpeg_installed=false
 
-    # 统一调用安装函数，一次性处理所有依赖
-    install_yt_dlp_dependency || return 1
-
-    # 修复：检查 yt-dlp 是否安装成功
-    # 首先检查PATH中是否可以直接找到yt-dlp
+    # 首先检查 yt-dlp 是否已安装
     if command -v yt-dlp &>/dev/null; then
         yt_dlp_installed=true
     else
@@ -358,16 +354,55 @@ check_or_install_yt_dlp() {
         fi
     fi
 
-    # 检查 ffmpeg 是否安装成功
+    # 检查 ffmpeg 是否已安装
     if command -v ffmpeg &>/dev/null; then
         ffmpeg_installed=true
     fi
 
+    # 只有在缺少依赖时才进行安装
+    if [ "$yt_dlp_installed" = false ] || [ "$ffmpeg_installed" = false ]; then
+        echo -e "${gl_huang}检测到缺少必要依赖，正在安装...${gl_bai}"
+        if [ "$yt_dlp_installed" = false ]; then
+            echo "  - 需要安装 yt-dlp"
+        fi
+        if [ "$ffmpeg_installed" = false ]; then
+            echo "  - 需要安装 ffmpeg"
+        fi
+        
+        # 调用安装函数
+        install_yt_dlp_dependency || return 1
+        
+        # 重新检查安装结果
+        # 重新检查 yt-dlp
+        if command -v yt-dlp &>/dev/null; then
+            yt_dlp_installed=true
+        else
+            local user_local_bin="$HOME/.local/bin"
+            if [ -x "$user_local_bin/yt-dlp" ]; then
+                export PATH="$user_local_bin:$PATH"
+                yt_dlp_installed=true
+            fi
+        fi
+        
+        # 重新检查 ffmpeg
+        if command -v ffmpeg &>/dev/null; then
+            ffmpeg_installed=true
+        fi
+    else
+        echo -e "${gl_lv}所有依赖已安装，跳过安装步骤。${gl_bai}"
+    fi
+
+    # 验证最终状态
     if [ "$yt_dlp_installed" = true ] && [ "$ffmpeg_installed" = true ]; then
-        echo -e "${gl_lv}yt-dlp 已成功安装和配置。${gl_bai}"
         return 0
     else
-        echo -e "${gl_hong}yt-dlp 或 ffmpeg 安装失败，请检查错误信息并重试。${gl_bai}"
+        echo -e "${gl_hong}依赖安装失败，请检查错误信息并重试。${gl_bai}"
+        if [ "$yt_dlp_installed" = false ]; then
+            echo "  - yt-dlp 未安装或不可用"
+        fi
+        if [ "$ffmpeg_installed" = false ]; then
+            echo "  - ffmpeg 未安装或不可用"
+        fi
         return 1
     fi
 }
