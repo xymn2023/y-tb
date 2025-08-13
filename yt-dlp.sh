@@ -16,7 +16,7 @@ GITHUB_SCRIPT_URL="https://raw.githubusercontent.com/xymn2023/yt-dlp/main/yt-dlp
 # 检测pip版本并兼容--break-system-packages参数
 check_pip_version() {
     local pip_version
-    pip_version=$(pip3 --version 2>/dev/null | grep -oP '\d+\.\d+' | head -1)
+    pip_version=$(pip3 --version 2>/dev/null | grep -oP '\\d+\\.\\d+' | head -1)
     if [ -n "$pip_version" ]; then
         # 检查版本是否大于等于23.0（支持--break-system-packages的版本）
         if python3 -c "import sys; sys.exit(0 if float('$pip_version') >= 23.0 else 1)" 2>/dev/null; then
@@ -151,7 +151,8 @@ uninstall_yt_dlp_function() {
     echo -e "${gl_hong}像 python3, pip3, wget, unzip, tar, jq, grep 等核心系统工具非常重要，不建议自动卸载。${gl_bai}"
     echo -e "${gl_hong}本脚本不会自动卸载它们。如需卸载，请您自行判断并手动使用'sudo apt remove/dnf remove/yum remove'等命令。${gl_bai}"
     echo ""
-    read -e -p "您确定要继续卸载吗？(y/N): " confirm_uninstall
+    echo -n "您确定要继续卸载吗？(y/N): "
+    read confirm_uninstall
     confirm_uninstall=${confirm_uninstall:-N}
 
     if [[ "$confirm_uninstall" =~ ^[Yy]$ ]]; then
@@ -222,7 +223,8 @@ update_self_script() {
         rm -f "$TEMP_SCRIPT"
     else
         echo -e "${gl_huang}检测到新版本脚本！${gl_bai}"
-        read -e -p "是否立即更新？(y/N): " confirm_update
+        echo -n "是否立即更新？(y/N): "
+        read confirm_update
         confirm_update=${confirm_update:-N}
 
         if [[ "$confirm_update" =~ ^[Yy]$ ]]; then
@@ -278,30 +280,43 @@ yt_menu_pro() {
         echo "1. 下载视频或音频"
         echo "2. 更新 yt-dlp"
         echo "3. 查看 yt-dlp 版本"
-        echo "4. 检查 yt-dlp 更新" # 措辞改为"检查 yt-dlp 更新"
-        echo "5. 更新脚本自身"      # 新增脚本自身更新选项
-        echo "6. 卸载 yt-dlp 及相关文件" 
+        echo "4. 检查 yt-dlp 更新"
+        echo "5. 更新脚本自身"
+        echo "6. 卸载 yt-dlp 及相关文件"
         echo "------------------------------------------------"
         echo "0. 返回主菜单"
         echo "------------------------------------------------"
-        read -e -p "请输入你的选择: " choice
+        echo -n "请输入你的选择: "
+        read choice
+        
+        # 输入验证和清理
+        if [ -z "$choice" ]; then
+            choice="invalid"
+        fi
+        
+        # 清理输入中的特殊字符
+        choice=$(echo "$choice" | tr -d '\r\n' | tr -d ' ')
 
         case $choice in
             1)
                 echo -e "${gl_huang}下载视频或音频${gl_bai}"
-                read -e -p "请输入视频/播放列表URL: " url
-                read -e -p "选择下载类型 (video/audio, 默认为video): " type
+                echo -n "请输入视频/播放列表URL: "
+                read url
+                echo -n "选择下载类型 (video/audio, 默认为video): "
+                read type
                 type=${type:-video}
 
                 if [ "$type" == "audio" ]; then
-                    read -e -p "请输入音频格式 (mp3/m4a/best, 默认为best): " audio_format
+                    echo -n "请输入音频格式 (mp3/m4a/best, 默认为best): "
+                    read audio_format
                     audio_format=${audio_format:-best}
                     yt-dlp -x --audio-format "$audio_format" "$url"
                 else
                     echo -e "${gl_kjlan}请选择视频下载质量优先级:${gl_bai}"
                     echo "1. 优先4K -> 2K -> 1080P (否则最佳可用)"
                     echo "2. 指定视频格式 (例如: best, bestvideo+bestaudio, 22, 137等)"
-                    read -e -p "请输入你的选择 (默认为1): " video_quality_choice
+                    echo -n "请输入你的选择 (默认为1): "
+                    read video_quality_choice
                     video_quality_choice=${video_quality_choice:-1}
 
                     case $video_quality_choice in
@@ -311,7 +326,8 @@ yt_menu_pro() {
                             yt-dlp -f "$video_format_string" "$url"
                             ;;
                         2)
-                            read -e -p "请输入视频格式 (best/bestvideo+bestaudio/22/137等, 默认为best): " video_format
+                            echo -n "请输入视频格式 (best/bestvideo+bestaudio/22/137等, 默认为best): "
+                            read video_format
                             video_format=${video_format:-best}
                             yt-dlp -f "$video_format" "$url"
                             ;;
@@ -370,7 +386,8 @@ yt_menu_pro() {
                 ;;
             *)
                 echo -e "${gl_hong}无效的选择，请重新输入。${gl_bai}"
-                break_end
+                echo "按任意键继续..."
+                read -n 1 -s -r
                 ;;
         esac
     done
