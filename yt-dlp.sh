@@ -82,9 +82,8 @@ install_yt_dlp_dependency() {
 break_end() {
     echo -e "${gl_lv}操作完成${gl_bai}"
     echo "按任意键继续..."
-    read -n 1 -s -r -p ""
+    read -n 1 -s -r
     echo ""
-    clear
 }
 
 # 检查或安装 yt-dlp 和 ffmpeg
@@ -122,8 +121,6 @@ check_or_install_yt_dlp() {
         ffmpeg_installed=true
     else
         echo -e "${gl_huang}ffmpeg 未检测到，yt-dlp 的某些功能可能受限。${gl_bai}"
-        break_end
-        return 0
     fi
     
     # 只要 yt-dlp 安装成功，就认为依赖检查通过
@@ -286,28 +283,28 @@ yt_menu_pro() {
         echo "------------------------------------------------"
         echo "0. 返回主菜单"
         echo "------------------------------------------------"
-        echo -n "请输入你的选择: "
+        
+        # 使用更稳定的输入方式
+        printf "请输入你的选择: "
         read choice
         
-        # 输入验证和清理
-        if [ -z "$choice" ]; then
-            choice="invalid"
-        fi
+        # 清理输入
+        choice=$(echo "$choice" | tr -d '\r\n\t ' | head -c 1)
         
-        # 清理输入中的特殊字符
-        choice=$(echo "$choice" | tr -d '\r\n' | tr -d ' ')
+        # 如果输入为空，设置为无效值
+        [ -z "$choice" ] && choice="x"
 
-        case $choice in
+        case "$choice" in
             1)
                 echo -e "${gl_huang}下载视频或音频${gl_bai}"
-                echo -n "请输入视频/播放列表URL: "
+                printf "请输入视频/播放列表URL: "
                 read url
-                echo -n "选择下载类型 (video/audio, 默认为video): "
+                printf "选择下载类型 (video/audio, 默认为video): "
                 read type
                 type=${type:-video}
 
                 if [ "$type" == "audio" ]; then
-                    echo -n "请输入音频格式 (mp3/m4a/best, 默认为best): "
+                    printf "请输入音频格式 (mp3/m4a/best, 默认为best): "
                     read audio_format
                     audio_format=${audio_format:-best}
                     yt-dlp -x --audio-format "$audio_format" "$url"
@@ -315,7 +312,7 @@ yt_menu_pro() {
                     echo -e "${gl_kjlan}请选择视频下载质量优先级:${gl_bai}"
                     echo "1. 优先4K -> 2K -> 1080P (否则最佳可用)"
                     echo "2. 指定视频格式 (例如: best, bestvideo+bestaudio, 22, 137等)"
-                    echo -n "请输入你的选择 (默认为1): "
+                    printf "请输入你的选择 (默认为1): "
                     read video_quality_choice
                     video_quality_choice=${video_quality_choice:-1}
 
@@ -326,7 +323,7 @@ yt_menu_pro() {
                             yt-dlp -f "$video_format_string" "$url"
                             ;;
                         2)
-                            echo -n "请输入视频格式 (best/bestvideo+bestaudio/22/137等, 默认为best): "
+                            printf "请输入视频格式 (best/bestvideo+bestaudio/22/137等, 默认为best): "
                             read video_format
                             video_format=${video_format:-best}
                             yt-dlp -f "$video_format" "$url"
@@ -382,12 +379,12 @@ yt_menu_pro() {
             0)
                 # 修复：退出时清屏
                 clear
-                break
+                echo -e "${gl_lv}感谢使用！${gl_bai}"
+                exit 0
                 ;;
             *)
-                echo -e "${gl_hong}无效的选择，请重新输入。${gl_bai}"
-                echo "按任意键继续..."
-                read -n 1 -s -r
+                echo -e "${gl_hong}无效的选择 [$choice]，请输入 0-6 之间的数字。${gl_bai}"
+                sleep 2
                 ;;
         esac
     done
