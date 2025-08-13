@@ -13,10 +13,29 @@ gl_kjlan='\033[96m'
 # GitHub 仓库中的脚本URL
 GITHUB_SCRIPT_URL="https://raw.githubusercontent.com/xymn2023/yt-dlp/main/yt-dlp.sh"
 
+# 检测pip版本并兼容--break-system-packages参数
+check_pip_version() {
+    local pip_version
+    pip_version=$(pip3 --version 2>/dev/null | grep -oP '\d+\.\d+' | head -1)
+    if [ -n "$pip_version" ]; then
+        # 检查版本是否大于等于23.0（支持--break-system-packages的版本）
+        if python3 -c "import sys; sys.exit(0 if float('$pip_version') >= 23.0 else 1)" 2>/dev/null; then
+            echo "--break-system-packages"
+        else
+            echo ""
+        fi
+    else
+        echo ""
+    fi
+}
+
 # 安装依赖
 install_yt_dlp_dependency() {
     local packages=("python3" "python3-pip" "wget" "unzip" "tar" "jq" "grep" "ffmpeg")
     local success=0 # 使用 0 表示成功
+    local break_packages_flag
+    break_packages_flag=$(check_pip_version)
+    
     for package in "${packages[@]}"; do
         if ! command -v "$package" &>/dev/null; then
             echo -e "${gl_huang}正在尝试安装 $package...${gl_bai}"
@@ -47,8 +66,12 @@ install_yt_dlp_dependency() {
     # 额外安装 yt-dlp
     if ! command -v yt-dlp &>/dev/null; then
         echo -e "${gl_huang}正在安装 yt-dlp...${gl_bai}"
-        # 强制使用 --break-system-packages 参数来解决 externally-managed-environment 错误
-        pip3 install --user yt-dlp --break-system-packages || sudo pip3 install yt-dlp --break-system-packages || success=1
+        # 根据pip版本选择是否使用--break-system-packages参数
+        if [ -n "$break_packages_flag" ]; then
+            pip3 install --user yt-dlp $break_packages_flag || sudo pip3 install yt-dlp $break_packages_flag || success=1
+        else
+            pip3 install --user yt-dlp || sudo pip3 install yt-dlp || success=1
+        fi
     fi
     # 返回数字 0 或 1
     return "$success"
@@ -255,7 +278,7 @@ yt_menu_pro() {
         echo "1. 下载视频或音频"
         echo "2. 更新 yt-dlp"
         echo "3. 查看 yt-dlp 版本"
-        echo "4. 检查 yt-dlp 更新" # 措辞改为“检查 yt-dlp 更新”
+        echo "4. 检查 yt-dlp 更新" # 措辞改为"检查 yt-dlp 更新"
         echo "5. 更新脚本自身"      # 新增脚本自身更新选项
         echo "6. 卸载 yt-dlp 及相关文件" 
         echo "------------------------------------------------"
@@ -303,7 +326,13 @@ yt_menu_pro() {
             2)
                 echo -e "${gl_huang}正在更新 yt-dlp...${gl_bai}"
                 # pip 安装 yt-dlp 优先尝试用户目录安装，如果失败则尝试全局安装（可能需要 sudo）
-                pip3 install --user --upgrade yt-dlp --break-system-packages || sudo pip3 install --upgrade yt-dlp --break-system-packages
+                local break_packages_flag
+                break_packages_flag=$(check_pip_version)
+                if [ -n "$break_packages_flag" ]; then
+                    pip3 install --user --upgrade yt-dlp $break_packages_flag || sudo pip3 install --upgrade yt-dlp $break_packages_flag
+                else
+                    pip3 install --user --upgrade yt-dlp || sudo pip3 install --upgrade yt-dlp
+                fi
                 break_end
                 ;;
             3)
@@ -314,7 +343,13 @@ yt_menu_pro() {
             4)
                 echo -e "${gl_huang}正在检查 yt-dlp 更新...${gl_bai}"
                 # 检查 yt-dlp 包是否有更新（不更新，只检查）
-                pip3 install --upgrade --no-deps yt-dlp --break-system-packages 2>&1 | grep -q 'Requirement already satisfied'
+                local break_packages_flag
+                break_packages_flag=$(check_pip_version)
+                if [ -n "$break_packages_flag" ]; then
+                    pip3 install --upgrade --no-deps yt-dlp $break_packages_flag 2>&1 | grep -q 'Requirement already satisfied'
+                else
+                    pip3 install --upgrade --no-deps yt-dlp 2>&1 | grep -q 'Requirement already satisfied'
+                fi
                 if [ $? -eq 0 ]; then
                     echo -e "${gl_lv}yt-dlp 已是最新版本。${gl_bai}"
                 else
