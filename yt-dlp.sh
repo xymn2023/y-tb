@@ -100,6 +100,7 @@ create_virtual_environment() {
         return 0
     else
         echo -e "${gl_hong}虚拟环境创建失败。${gl_bai}"
+        echo -e "${gl_huang}提示：如果是 Debian/Ubuntu 系统，可能需要安装 python3-venv 包${gl_bai}"
         return 1
     fi
 }
@@ -242,7 +243,8 @@ remove_virtual_environment() {
 
 # 安装依赖（增强版，支持虚拟环境备用方案）
 install_yt_dlp_dependency() {
-    local packages=("python3" "python3-pip" "wget" "unzip" "tar" "jq" "grep" "ffmpeg")
+    # 修复：添加 python3-venv 包到依赖列表
+    local packages=("python3" "python3-pip" "python3-venv" "wget" "unzip" "tar" "jq" "grep" "ffmpeg")
     local success=0 # 使用 0 表示成功
     local commands
     commands=$(detect_python_commands)
