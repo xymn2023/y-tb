@@ -11,12 +11,12 @@ gl_zi='\033[35m'
 gl_kjlan='\033[96m'
 
 # GitHub 仓库中的脚本URL
-GITHUB_SCRIPT_URL="https://raw.githubusercontent.com/xymn2023/yt-dlp/main/yt-dlp.sh"
+GITHUB_SCRIPT_URL="https://raw.githubusercontent.com/xymn2023/y-tb/main/yt-dlp.sh"
 
 # 检测pip版本并兼容--break-system-packages参数
 check_pip_version() {
     local pip_version
-    pip_version=$(pip3 --version 2>/dev/null | grep -oP '\\d+\\.\\d+' | head -1)
+    pip_version=$(pip3 --version 2>/dev/null | grep -oP '\d+\.\d+' | head -1)
     if [ -n "$pip_version" ]; then
         # 检查版本是否大于等于23.0（支持--break-system-packages的版本）
         if python3 -c "import sys; sys.exit(0 if float('$pip_version') >= 23.0 else 1)" 2>/dev/null; then
@@ -82,7 +82,8 @@ install_yt_dlp_dependency() {
 break_end() {
     echo -e "${gl_lv}操作完成${gl_bai}"
     echo "按任意键继续..."
-    read -n 1 -s -r
+    # 修复：从 /dev/tty 读取以解决管道输入问题
+    read -n 1 -s -r < /dev/tty
     echo ""
 }
 
@@ -108,35 +109,26 @@ check_or_install_yt_dlp() {
         fi
     fi
 
-    if [ "$yt_dlp_installed" = true ]; then
-        echo -e "${gl_lv}yt-dlp 已成功安装和配置。${gl_bai}"
-    else
-        echo -e "${gl_hong}yt-dlp 安装失败，请检查您的环境或手动安装。${gl_bai}"
-        break_end
-        return 1
-    fi
-
     # 检查 ffmpeg 是否安装成功
     if command -v ffmpeg &>/dev/null; then
         ffmpeg_installed=true
-    else
-        echo -e "${gl_huang}ffmpeg 未检测到，yt-dlp 的某些功能可能受限。${gl_bai}"
     fi
-    
-    # 只要 yt-dlp 安装成功，就认为依赖检查通过
-    if "$yt_dlp_installed"; then
+
+    if [ "$yt_dlp_installed" = true ] && [ "$ffmpeg_installed" = true ]; then
+        echo -e "${gl_lv}yt-dlp 已成功安装和配置。${gl_bai}"
         return 0
     else
+        echo -e "${gl_hong}yt-dlp 或 ffmpeg 安装失败，请检查错误信息并重试。${gl_bai}"
         return 1
     fi
 }
 
 # 卸载 yt-dlp 及相关文件
 uninstall_yt_dlp_function() {
+    # 获取脚本所在目录
     local SCRIPT_DIR
-    SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+    SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
-    clear
     echo -e "${gl_hong}=== 警告：卸载操作 ===${gl_bai}"
     echo -e "${gl_huang}此操作将执行以下删除：${gl_bai}"
     echo "- ${gl_lv}yt-dlp 程序（通过 pip3 安装的部分）${gl_bai}"
@@ -149,7 +141,8 @@ uninstall_yt_dlp_function() {
     echo -e "${gl_hong}本脚本不会自动卸载它们。如需卸载，请您自行判断并手动使用'sudo apt remove/dnf remove/yum remove'等命令。${gl_bai}"
     echo ""
     echo -n "您确定要继续卸载吗？(y/N): "
-    read confirm_uninstall
+    # 修复：从 /dev/tty 读取以解决管道输入问题
+    read confirm_uninstall < /dev/tty
     confirm_uninstall=${confirm_uninstall:-N}
 
     if [[ "$confirm_uninstall" =~ ^[Yy]$ ]]; then
@@ -179,23 +172,24 @@ uninstall_yt_dlp_function() {
             echo -e "${gl_hong}未知的包管理器，无法自动卸载 ffmpeg。请手动卸载。${gl_bai}"
         fi
 
-        echo -e "${gl_huang}正在删除脚本文件和目录：${SCRIPT_DIR}...${gl_bai}"
-        rm -rf "$SCRIPT_DIR" &>/dev/null & disown
-        echo -e "${gl_lv}yt-dlp 及相关文件已成功删除。${gl_bai}"
-        echo -e "${gl_lv}请注意：其他核心系统依赖可能仍然存在，如需卸载请手动操作。${gl_bai}"
-        exit 0 
+        echo -e "${gl_huang}正在删除脚本文件和目录...${gl_bai}"
+        # 清理脚本文件和目录，使用 trap 确保脚本在删除前退出
+        cd /
+        rm -rf "$SCRIPT_DIR"
+        echo -e "${gl_lv}卸载完成。${gl_bai}"
+        exit 0
     else
-        echo -e "${gl_lv}卸载操作已取消。${gl_bai}"
-        break_end
+        echo -e "${gl_lv}卸载已取消。${gl_bai}"
     fi
+    break_end
 }
 
 # 更新脚本自身
 update_self_script() {
     local SCRIPT_PATH
-    SCRIPT_PATH=$(readlink -f "$0")
-    local TEMP_SCRIPT="/tmp/yt-dlp_temp_update_script.sh"
-    local WRAPPER_SCRIPT="/tmp/yt-dlp_wrapper_script.sh"
+    SCRIPT_PATH=$(realpath "$0")
+    local TEMP_SCRIPT="/tmp/yt-dlp-update-temp.sh"
+    local WRAPPER_SCRIPT="/tmp/yt-dlp-wrapper.sh"
 
     echo -e "${gl_huang}正在从 GitHub 检查脚本更新...${gl_bai}"
     if command -v curl &>/dev/null; then
@@ -221,7 +215,8 @@ update_self_script() {
     else
         echo -e "${gl_huang}检测到新版本脚本！${gl_bai}"
         echo -n "是否立即更新？(y/N): "
-        read confirm_update
+        # 修复：从 /dev/tty 读取以解决管道输入问题
+        read confirm_update < /dev/tty
         confirm_update=${confirm_update:-N}
 
         if [[ "$confirm_update" =~ ^[Yy]$ ]]; then
@@ -240,12 +235,14 @@ SCRIPT_PATH="\$1"
 # 从参数中获取新脚本的临时路径
 TEMP_SCRIPT="\$2"
 
-# 备份旧脚本并替换为新脚本
-mv "\$SCRIPT_PATH" "\${SCRIPT_PATH}.bak"
+# 等待主脚本完全退出
+sleep 1
+
+# 使用 mv 替换主脚本文件
 mv "\$TEMP_SCRIPT" "\$SCRIPT_PATH"
 chmod +x "\$SCRIPT_PATH"
 
-echo -e "${gl_lv}脚本更新成功！正在启动新版本...${gl_bai}"
+echo "脚本更新完成，正在重新启动..."
 
 # 清理自身，然后使用exec命令重新运行新脚本，并传递所有原始参数
 rm "\$0"
@@ -284,9 +281,9 @@ yt_menu_pro() {
         echo "0. 返回主菜单"
         echo "------------------------------------------------"
         
-        # 使用更稳定的输入方式
+        # 修复：从 /dev/tty 读取用户输入以解决管道输入问题
         printf "请输入你的选择: "
-        read choice
+        read choice < /dev/tty
         
         # 清理输入
         choice=$(echo "$choice" | tr -d '\r\n\t ' | head -c 1)
@@ -298,14 +295,14 @@ yt_menu_pro() {
             1)
                 echo -e "${gl_huang}下载视频或音频${gl_bai}"
                 printf "请输入视频/播放列表URL: "
-                read url
+                read url < /dev/tty
                 printf "选择下载类型 (video/audio, 默认为video): "
-                read type
+                read type < /dev/tty
                 type=${type:-video}
 
                 if [ "$type" == "audio" ]; then
                     printf "请输入音频格式 (mp3/m4a/best, 默认为best): "
-                    read audio_format
+                    read audio_format < /dev/tty
                     audio_format=${audio_format:-best}
                     yt-dlp -x --audio-format "$audio_format" "$url"
                 else
@@ -313,7 +310,7 @@ yt_menu_pro() {
                     echo "1. 优先4K -> 2K -> 1080P (否则最佳可用)"
                     echo "2. 指定视频格式 (例如: best, bestvideo+bestaudio, 22, 137等)"
                     printf "请输入你的选择 (默认为1): "
-                    read video_quality_choice
+                    read video_quality_choice < /dev/tty
                     video_quality_choice=${video_quality_choice:-1}
 
                     case $video_quality_choice in
@@ -324,7 +321,7 @@ yt_menu_pro() {
                             ;;
                         2)
                             printf "请输入视频格式 (best/bestvideo+bestaudio/22/137等, 默认为best): "
-                            read video_format
+                            read video_format < /dev/tty
                             video_format=${video_format:-best}
                             yt-dlp -f "$video_format" "$url"
                             ;;
